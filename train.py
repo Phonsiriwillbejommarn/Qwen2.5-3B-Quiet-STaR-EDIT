@@ -364,20 +364,23 @@ def model_init(args, tokenizer):
         model = model.to(dtype=torch.bfloat16)
         model = model.cuda()
 
-        # Add special thought tokens
-        special_tokens_to_add = []
-        if args.use_start_thought_token:
-            special_tokens_to_add.append("<|startthought|>")
-        if args.use_end_thought_token:
-            special_tokens_to_add.append("<|endthought|>")
+        # ── Collect ALL special tokens and add them in ONE call ──────────────
+        # HuggingFace's add_special_tokens({"additional_special_tokens": [...]})
+        # REPLACES the existing list. So we must gather every token we need
+        # and add them all at once to avoid dropping <think>/</ think>.
+        all_special = list(tokenizer.additional_special_tokens or [])
+        if args.use_start_thought_token and "<|startthought|>" not in all_special:
+            all_special.append("<|startthought|>")
+        if args.use_end_thought_token and "<|endthought|>" not in all_special:
+            all_special.append("<|endthought|>")
+        if all_special:
+            tokenizer.add_special_tokens({"additional_special_tokens": all_special})
 
-        if special_tokens_to_add:
-            num_added = tokenizer.add_special_tokens({
-                "additional_special_tokens": special_tokens_to_add
-            })
-            if num_added > 0:
-                model.resize_token_embeddings(len(tokenizer))
-                logger.info(f"Added {num_added} special tokens, resized embeddings to {len(tokenizer)}")
+        # ALWAYS resize embeddings to match the tokenizer – the saved model
+        # config may have a smaller vocab_size than the current tokenizer
+        if len(tokenizer) != model.config.vocab_size:
+            model.resize_token_embeddings(len(tokenizer))
+            logger.info(f"Resized embeddings: {model.config.vocab_size} → {len(tokenizer)}")
 
         # Initialize thought embeddings from pretrained embedding statistics
         # The default init (std=0.02) is FAR too small compared to real embeddings,
