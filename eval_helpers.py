@@ -135,10 +135,23 @@ def preprocess_gsm8k_sft(examples):
     )
 
     # Create labels and mask padding with -100 so loss ignores it
+    # We also mask the Question prefix so the model only trains on generating the response
     labels = []
     pad_id = _tokenizer.pad_token_id
+    think_id = _tokenizer.encode("<think>", add_special_tokens=False)[0]
+
     for ids in tokenized["input_ids"]:
         label = [tok if tok != pad_id else -100 for tok in ids]
+        
+        # Find where <think> starts to mask the question prefix
+        try:
+            start_idx = ids.index(think_id)
+            # Mask everything before <think> with -100
+            for i in range(start_idx):
+                label[i] = -100
+        except ValueError:
+            pass # If <think> not found (shouldn't happen), just leave it
+            
         labels.append(label)
         
     tokenized["labels"] = labels
