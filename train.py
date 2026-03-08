@@ -611,6 +611,7 @@ def main():
         batched=True,
         writer_batch_size=200,
         remove_columns=dataset.column_names,
+        load_from_cache_file=False,
     )
 
     logger.info(f"Training dataset: {len(train_dataset)} examples")
@@ -626,6 +627,7 @@ def main():
                 batched=True,
                 writer_batch_size=200,
                 remove_columns=gsm8k_raw.column_names,
+                load_from_cache_file=False,
             )
             logger.info(f"  ✓ GSM8K SFT dataset: {len(gsm8k_sft_dataset)} examples")
         except Exception as e:
