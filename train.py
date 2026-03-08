@@ -620,7 +620,7 @@ def main():
     if args.use_sft_warmup or args.use_verifiable_reward:
         logger.info("Loading GSM8K dataset for SFT warmup / verifiable reward...")
         try:
-            gsm8k_raw = load_dataset("openai/gsm8k", "main", split="train", trust_remote_code=True)
+            gsm8k_raw = load_dataset("openai/gsm8k", "main", split="train")
             gsm8k_sft_dataset = gsm8k_raw.shuffle(seed=args.seed).map(
                 preprocess_gsm8k_sft,
                 batched=True,
