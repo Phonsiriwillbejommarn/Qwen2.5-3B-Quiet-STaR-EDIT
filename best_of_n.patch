@@ -1,0 +1,52 @@
+--- modeling_quiet_star.py
++++ modeling_quiet_star.py
+@@ -10,2 +10,4 @@
+ 4. Learnable start/end thought token embeddings
++5. Selective Thinking Gate (per-position, learned)
++6. Dynamic n_ahead based on gate confidence
++7. Incremental KV Cache for think steps
++8. Chunk-level Thinking — think over N-token windows instead of single tokens
+@@ -29,2 +31,4 @@
+ 
++from config import QuietStarConfig
++
+ logger = hf_logging.get_logger(__name__)
+@@ -37,2 +41,92 @@
+ 
++class ThinkingGate(nn.Module):
++    def __init__(self, hidden_size: int, gate_hidden_dim: int = 128, bias_init: float = -2.0):
++        super().__init__()
++        self.fc1 = nn.Linear(hidden_size, gate_hidden_dim, bias=True)
++        self.fc2 = nn.Linear(gate_hidden_dim, 1, bias=True)
++        nn.init.constant_(self.fc2.bias, bias_init)
++        nn.init.xavier_uniform_(self.fc1.weight)
++        nn.init.xavier_uniform_(self.fc2.weight)
++
++    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
++        x = F.relu(self.fc1(hidden_states.detach()))
++        return torch.sigmoid(self.fc2(x))
++
++# ============================================================================
++# Process Reward Model (PRM)
++# ============================================================================
++
++class ProcessRewardModel(nn.Module):
++    def __init__(self, hidden_size: int, hidden_dim: int = 256):
++        super().__init__()
++        self.norm1 = nn.LayerNorm(hidden_size)
++        self.fc1   = nn.Linear(hidden_size, hidden_dim)
++        self.norm2 = nn.LayerNorm(hidden_dim)
++        self.fc2   = nn.Linear(hidden_dim, hidden_dim)
++        self.fc3   = nn.Linear(hidden_dim, 1)
++        nn.init.zeros_(self.fc3.weight)
++        nn.init.zeros_(self.fc3.bias)
++
++    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
++        x = self.norm1(hidden_states)
++        x = F.gelu(self.fc1(x))
++        x = self.norm2(x)
++        x = F.gelu(self.fc2(x))
++        return self.fc3(x).squeeze(-1)
++
++    def score_mean(self, hidden_states: torch.Tensor) -> torch.Tensor:
++        return self.forward(hidden_states).mean(dim=-1)
