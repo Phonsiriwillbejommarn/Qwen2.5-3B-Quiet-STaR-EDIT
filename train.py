@@ -257,6 +257,7 @@ def model_init(args, tokenizer):
             args.model_name,
             cache_dir=args.cache_dir,
             trust_remote_code=True,
+            token=args.hf_token if args.hf_token else None,
         )
 
         # Create QuietStarConfig from base Qwen2 config
@@ -317,6 +318,7 @@ def model_init(args, tokenizer):
                 trust_remote_code=True,
                 attn_implementation="sdpa",
                 ignore_mismatched_sizes=True,
+                token=args.hf_token if args.hf_token else None,
             )
             logger.info("✓ Successfully loaded weights directly into Quiet-STAR architecture (resuming heads/embeddings if present)")
             
@@ -331,6 +333,7 @@ def model_init(args, tokenizer):
                 device_map="cpu",
                 trust_remote_code=True,
                 attn_implementation="sdpa",
+                token=args.hf_token if args.hf_token else None,
             )
             
             model = QuietStarQwen2ForCausalLM(quiet_config)
@@ -565,6 +568,7 @@ def main():
         original_base_model,
         cache_dir=args.cache_dir,
         trust_remote_code=True,
+        token=args.hf_token if args.hf_token else None,
     )
     tokenizer.padding_side = "right"
     if tokenizer.pad_token_id is None:
@@ -729,16 +733,19 @@ def main():
             quantization_config=quant_config,
             cache_dir=args.cache_dir,
             trust_remote_code=True,
+            token=args.hf_token if args.hf_token else None,
         )
         judge_hf_model.eval()
         judge_tokenizer = AutoTokenizer.from_pretrained(
-            args.judge_model_name, cache_dir=args.cache_dir, trust_remote_code=True
+            args.judge_model_name,
+            cache_dir=args.cache_dir,
+            trust_remote_code=True,
+            token=args.hf_token if args.hf_token else None,
         )
         judge_instance = ReasoningJudge(judge_hf_model, judge_tokenizer)
         logger.info("✓ Judge model loaded successfully")
 
     # ================================================================
-    # Initialize Trainer
     # ================================================================
     init_fn = model_init(args, tokenizer)
     model = init_fn()
