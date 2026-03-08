@@ -787,7 +787,15 @@ def main():
         )
 
         # Disable RL features during SFT
-        model.original_mode = True  # pure next-token prediction, no thought generation
+        # Force plain CE during SFT — disable all thought generation routing
+        model.original_mode = True
+        _saved_n_ahead = model.n_ahead
+        _saved_n_ahead_talk = model.n_ahead_talk
+        _saved_n_passes = model.n_passes
+        
+        model.n_ahead = 1
+        model.n_ahead_talk = 1
+        model.n_passes = 1
 
         sft_trainer = Trainer(
             model=model,
@@ -797,7 +805,10 @@ def main():
         sft_trainer.train()
         logger.info("✓ SFT Warmup complete — model has learned <think> format")
 
-        # Re-enable RL features
+        # Restore RL features
+        model.n_ahead = _saved_n_ahead
+        model.n_ahead_talk = _saved_n_ahead_talk
+        model.n_passes = _saved_n_passes
         model.original_mode = False
 
     # ================================================================

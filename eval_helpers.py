@@ -70,14 +70,16 @@ def preprocess_function(examples):
 
             # Pad if needed
             attention_mask = [1] * len(chunk)
+            label = chunk.copy()
             if len(chunk) < _max_length:
                 pad_len = _max_length - len(chunk)
                 chunk = chunk + [_tokenizer.pad_token_id] * pad_len
                 attention_mask = attention_mask + [0] * pad_len
+                label = label + [-100] * pad_len
 
             all_input_ids.append(chunk)
             all_attention_masks.append(attention_mask)
-            all_labels.append(chunk.copy())
+            all_labels.append(label)
 
     return {
         "input_ids": all_input_ids,
@@ -132,7 +134,14 @@ def preprocess_gsm8k_sft(examples):
         return_tensors=None,
     )
 
-    tokenized["labels"] = [ids.copy() for ids in tokenized["input_ids"]]
+    # Create labels and mask padding with -100 so loss ignores it
+    labels = []
+    pad_id = _tokenizer.pad_token_id
+    for ids in tokenized["input_ids"]:
+        label = [tok if tok != pad_id else -100 for tok in ids]
+        labels.append(label)
+        
+    tokenized["labels"] = labels
     tokenized["gold_answers"] = gold_answers
 
     return tokenized
